@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>আয়-ব্যয় - সংসারের সুশৃঙ্খল আধুনিক হিসাব</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Chart.js CDN for Pie Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts (Poppins) -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Poppins', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Privacy Lock Screen Modal -->
+    <div id="privacy-lock-modal" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4">
+        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center space-y-4">
+            <div class="text-4xl">🔐</div>
+            <h2 class="text-lg font-bold text-slate-800">ফ্যামিলি প্রাইভেসি লক</h2>
+            <p class="text-xs text-slate-500">অ্যাপের হিসাব সুরক্ষিত রাখতে ৪ ডিজিটের পিনটি দিন!</p>
+            <input type="password" id="pin-input" maxlength="4" placeholder="••••" class="w-full text-center tracking-widest text-xl border rounded-lg py-2 outline-none focus:border-indigo-500">
+            <button onclick="verifyPin()" class="w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition">আনলক করুন</button>
+        </div>
+    </div>
+
+    <!-- Header / Navbar -->
+    <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <img src="logo.jpg" alt="Logo" class="w-8 h-8 rounded-full object-cover shadow">
+                <h1 class="text-xl font-bold tracking-wide">আয়-ব্যয়</h1>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span id="current-date" class="text-xs bg-indigo-700 px-3 py-1 rounded-full font-medium"></span>
+                <button onclick="lockApp()" class="bg-rose-500 text-white px-3 py-1 rounded text-xs font-bold shadow hover:bg-rose-600 transition">লক করুন</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+        <!-- Sidebar Navigation -->
+        <aside class="lg:col-span-1 space-y-4">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                <h2 class="font-semibold text-slate-700 mb-3 border-b pb-2">ড্যাশবোর্ড মেনু</h2>
+                <nav class="space-y-1">
+                    <button onclick="switchTab('dashboard')" id="nav-dashboard" class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium bg-indigo-50 text-indigo-600 transition">📊 সামারি ও পাই-চার্ট</button>
+                    <button onclick="switchTab('bills')" id="nav-bills" class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition">💡 ফিক্সড বিল ও ভাড়া</button>
+                    <button onclick="switchTab('children')" id="nav-children" class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition">🎒 শিক্ষা ও টিফিন খরচ</button>
+                    <button onclick="switchTab('grocery')" id="nav-grocery" class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition">🛒 স্মার্ট গ্রোসারি লিস্ট</button>
+                    <button onclick="switchTab('report')" id="nav-report" class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition">📑 মাসিক ফ্যামিলি রিপোর্ট</button>
+                </nav>
+            </div>
+
+            <!-- Date Countdown Card -->
+            <div class="bg-gradient-to-br from-indigo-500 to-violet-600 text-white p-4 rounded-xl shadow-md">
+                <h3 class="font-semibold text-sm mb-2 opacity-90">তারিখ থেকে মাস শেষ পর্যন্ত হিসাব</h3>
+                <div class="space-y-2 text-xs">
+                    <div>
+                        <label class="block opacity-80 mb-1">শেষ তারিখ সিলেক্ট করুন:</label>
+                        <input type="date" id="calc-end-date" class="w-full bg-white/20 border border-white/30 rounded p-1.5 text-white outline-none">
+                    </div>
+                    <button onclick="calculateRemainingPeriod()" class="w-full bg-white text-indigo-600 font-bold py-1.5 rounded shadow hover:bg-slate-100 transition">হিসাব দেখুন</button>
+                    <div id="calc-result" class="mt-2 pt-2 border-t border-white/20 font-medium hidden">
+                        বাকি দিন: <span id="res-days">0</span> দিন<br>
+                        সম্ভাব্য খরচ: ৳ <span id="res-cost">0</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <section class="lg:col-span-3 space-y-6">
+
+            <!-- TAB 1: Dashboard & Pie Chart -->
+            <div id="tab-dashboard" class="tab-content space-y-6">
+                <!-- Overview Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-slate-500 font-medium">মোট মাসিক আয়</p>
+                            <h3 class="text-xl font-bold text-emerald-600" id="total-income-view">৳ ০</h3>
+                        </div>
+                        <div class="bg-emerald-50 p-3 rounded-full text-emerald-600 text-xl">📈</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-slate-500 font-medium">মোট মাসিক খরচ</p>
+                            <h3 class="text-xl font-bold text-rose-600" id="total-expense-view">৳ ০</h3>
+                        </div>
+                        <div class="bg-rose-50 p-3 rounded-full text-rose-600 text-xl">📉</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-slate-500 font-medium">নিট ব্যালেন্স (অবশিষ্ট)</p>
+                            <h3 class="text-xl font-bold text-indigo-600" id="net-balance-view">৳ ০</h3>
+                        </div>
+                        <div class="bg-indigo-50 p-3 rounded-full text-indigo-600 text-xl">💰</div>
+                    </div>
+                </div>
+
+                <!-- Income Setup -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                    <h3 class="font-bold text-slate-700 mb-3 text-sm">মাসিক আয় সেট করুন</h3>
+                    <div class="flex gap-3">
+                        <input type="number" id="income-input" placeholder="মাসিক আয় (টাকা)" class="flex-grow border rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500">
+                        <button onclick="updateIncome()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition">সেভ করুন</button>
+                    </div>
+                </div>
+
+                <!-- Charts & Summary Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Pie Chart Container -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center">
+                        <h3 class="font-bold text-slate-700 mb-3 text-sm self-start">খাত অনুযায়ী খরচের পাই-চার্ট</h3>
+                        <div class="w-64 h-64">
+                            <canvas id="expensePieChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Quick Summary Table -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                        <h3 class="font-bold text-slate-700 mb-3 text-sm">খাতের সারসংক্ষেপ</h3>
+                        <div class="overflow-x-auto max-h-64 overflow-y-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-slate-50 text-slate-600 border-b sticky top-0">
+                                    <tr>
+                                        <th class="p-2">বিবরণ</th>
+                                        <th class="p-2">সদস্য</th>
+                                        <th class="p-2 text-right">টাকা</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="summary-table-body" class="divide-y">
+                                    <tr><td colspan="3" class="p-4 text-center text-slate-400">কোনো ডেটা নেই।</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: Fixed Bills -->
+            <div id="tab-bills" class="tab-content hidden space-y-6">
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                    <h3 class="font-bold text-slate-700 mb-4 text-base">বিদ্যুৎ, ওয়াইফাই, গ্যাস ও বাসা ভাড়া যোগ করুন</h3>
+                    <form id="bill-form" onsubmit="addBill(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">বিলের নাম</label>
+                            <select id="bill-name" class="w-full border rounded-lg p-2 text-sm outline-none focus:border-indigo-500">
+                                <option value="বিদ্যুৎ বিল">বিদ্যুৎ বিল</option>
+                                <option value="ওয়াইফাই বিল">ওয়াইফাই বিল</option>
+                                <option value="গ্যাস বিল">গ্যাস বিল</option>
+                                <option value="বাড়ির ভাড়া">বাড়ির ভাড়া</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">টাকার পরিমাণ (৳)</label>
+                            <input type="number" id="bill-amount" required class="w-full border rounded-lg p-2 text-sm outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">কে প্রদান করেছেন?</label>
+                            <select id="bill-payer" class="w-full border rounded-lg p-2 text-sm outline-none focus:border-indigo-500">
+                                <option value="আব্বা">আব্বু</option>
+                                <option value="আম্মু">আম্মু</option>
+                                <option value="আমি">আমি</option>
+                                <option value="আপু">আপু</option> 
+                                <option value="ভাইয়া">ভাইয়া</option>                               
+                                <option value="অন্যান্য">অন্যান্য</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-3">
+                            <button type="submit" class="w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm hover:bg-indigo-700 transition">বিল যুক্ত করুন</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                    <h3 class="font-bold text-slate-700 mb-3 text-sm">সকল ফিক্সড বিল ও ভাড়ার তালিকা</h3>
+                    <div id="bills-list-container" class="space-y-2">
+                        <p class="text-slate-400 text-sm">কোনো বিল এন্ট্রি করা হয়নি।</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: Children Expenses -->
+            <div id="tab-children" class="tab-content hidden space-y-6">
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                    <h3 class="font-bold text-slate-700 mb-4 text-base">বাচ্চাদের স্কুল ফি, টিফিন, কোচিং ও যাতায়াত খরচ</h3>
+                    <form id="child-form" onsubmit="addChildExpense(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">বাচ্চার নাম</label>
+                            <input type="text" id="child-name" required class="w-full border rounded-lg p-2 text-sm outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">খাতের ধরন</label>
+                            <select id="child-expense-type" class="w-full border rounded-lg p-2 text-sm outline-none focus:border-indigo-500">
+                                <option value="স্কুল ফি (মাসিক)">স্কুল ফি (মাসিক)</option>
+                                <option value="টিফিন খরচ (দৈনিক)">টিফিন খরচ (দৈনিক)</option>
+                                <option value="কোচিং বা প্রাইভেট ফি (মাসিক)">কোচিং বা প্রাইভেট ফি (মাসিক)</option>
+                                <option value="যাতায়াত খরচ (দৈনিক)">যাতায়াত খরচ (দৈনিক)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">টাকার পরিমাণ (৳)</label>
+                            <input type="number" id="child-amount" required class="w-full border rounded-lg p-2 text-sm outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">দায়িত্বে কে আছেন?</label>
+                            <select id="child-payer" class="w-full border rounded-lg p-2 text-sm outline-none focus:border-indigo-500">
+                                <option value="আব্বা">আব্বু</option>
+                                <option value="আম্মু">আম্মু</option>
+                                <option value="আমি">আমি</option>
+                                <option value="আপু">আপু</option> 
+                                <option value="ভাইয়া">ভাইয়া</option>                               
+                                <option value="অন্যান্য">অন্যান্য</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <button type="submit" class="w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm hover:bg-indigo-700 transition">খরচ যুক্ত করুন</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                    <h3 class="font-bold text-slate-700 mb-3 text-sm">বাচ্চাদের শিক্ষা, টিফিন ও যাতায়াত খরচের বিবরণ</h3>
+                    <div id="children-list-container" class="space-y-2">
+                        <p class="text-slate-400 text-sm">কোনো তথ্য যোগ করা হয়নি।</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: Grocery List -->
+            <div id="tab-grocery" class="tab-content hidden space-y-6">
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                    <h3 class="font-bold text-slate-700 mb-4 text-base">স্মার্ট গ্রোসারি ও বাজার তালিকা</h3>
+                    <div class="flex gap-3 mb-4">
+                        <input type="text" id="grocery-item-input" placeholder="বাজারের আইটেম লিখুন (যেমন: চাল, ডাল, তেল ...)" class="flex-grow border rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500">
+                        <button onclick="addGroceryItem()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition">আইটেম যোগ করুন</button>
+                    </div>
+                    <ul id="grocery-list" class="space-y-2">
+                        <p class="text-slate-400 text-sm">বাজারের তালিকা খালি আছে।</p>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- TAB 5: Monthly Family Report Card -->
+            <div id="tab-report" class="tab-content hidden space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-4">
+                    <div class="flex justify-between items-center border-b pb-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-indigo-600">📑 মাসিক ফ্যামিলি রিপোর্ট কার্ড</h2>
+                            <p class="text-xs text-slate-500" id="report-date-title">বর্তমান মাসের ফাইন্যান্সিয়াল সামারি</p>
+                        </div>
+                        <button onclick="window.print()" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-200 transition">প্রিন্ট / সেভ PDF</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div class="bg-slate-50 p-4 rounded-lg border">
+                            <span class="text-slate-500 block text-xs">মোট আয়</span>
+                            <span class="text-lg font-bold text-emerald-600" id="rep-income">৳ ০</span>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-lg border">
+                            <span class="text-slate-500 block text-xs">মোট খরচ</span>
+                            <span class="text-lg font-bold text-rose-600" id="rep-expense">৳ ০</span>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-lg border">
+                            <span class="text-slate-500 block text-xs">সঞ্চয় (Savings)</span>
+                            <span class="text-lg font-bold text-indigo-600" id="rep-savings">৳ ০</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="font-semibold text-slate-700 text-sm mb-2">সদস্যদের অবদান ও খরচ (Contributor Breakdown)</h4>
+                        <div id="contributor-report-box" class="space-y-2 text-sm">
+                            <p class="text-slate-400 text-xs">কোনো কন্ট্রিবিউশন ডেটা পাওয়া যায়নি।</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t py-4 text-center text-xs text-slate-500 mt-auto">
+        <p>আয়-ব্যয় &copy; 2026 | Created by HiMu</p>
+    </footer>
+
+    <!-- JavaScript Logic & Chart Config -->
+    <script>
+        // Privacy Pin Verification
+        function verifyPin() {
+            const pin = document.getElementById('pin-input').value;
+            if(pin === '1234') {
+                document.getElementById('privacy-lock-modal').classList.add('hidden');
+            } else {
+                alert('ভুল পিন কোড! সঠিক পিন (1234) দিন।');
+            }
+        }
+        function lockApp() {
+            document.getElementById('pin-input').value = '';
+            document.getElementById('privacy-lock-modal').classList.remove('hidden');
+        }
+
+        // App State
+        let appData = {
+            totalIncome: 25000,
+            bills: [],
+            childrenExpenses: [],
+            groceryItems: []
+        };
+
+        // Date Display
+        const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+        document.getElementById('current-date').innerText = new Date().toLocaleDateString('bn-BD', options);
+        document.getElementById('report-date-title').innerText = new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long' }) + " মাসের সামারি রিপোর্ট";
+
+        // Tab Switching
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+
+            document.querySelectorAll('aside nav button').forEach(btn => {
+                btn.className = "w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition";
+            });
+            document.getElementById('nav-' + tabId).className = "w-full text-left px-3 py-2 rounded-lg text-sm font-medium bg-indigo-50 text-indigo-600 transition";
+            
+            if(tabId === 'dashboard') {
+                updateChart();
+            }
+        }
+
+        // Income Update
+        function updateIncome() {
+            const val = parseFloat(document.getElementById('income-input').value);
+            if(!isNaN(val) && val >= 0) {
+                appData.totalIncome = val;
+                updateDashboard();
+                alert('মাসিক আয় সফলভাবে আপডেট করা হয়েছে!');
+            } else {
+                alert('দয়া করে সঠিক সংখ্যা লিখুন।');
+            }
+        }
+
+        // Bills Handling
+        function addBill(e) {
+            e.preventDefault();
+            const name = document.getElementById('bill-name').value;
+            const amount = parseFloat(document.getElementById('bill-amount').value);
+            const payer = document.getElementById('bill-payer').value;
+
+            appData.bills.push({ name, amount, payer });
+            document.getElementById('bill-amount').value = '';
+            renderBills();
+            updateDashboard();
+        }
+
+        function renderBills() {
+            const container = document.getElementById('bills-list-container');
+            if(appData.bills.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 text-sm">কোনো বিল এন্ট্রি করা হয়নি।</p>';
+                return;
+            }
+            container.innerHTML = appData.bills.map((b, i) => `
+                <div class="flex justify-between items-center bg-slate-50 p-3 rounded-lg border text-sm">
+                    <div>
+                        <span class="font-semibold text-slate-700">${b.name}</span>
+                        <span class="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded ml-2">প্রদানকারী: ${b.payer}</span>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="font-bold text-indigo-600">৳ ${b.amount}</span>
+                        <button onclick="removeBill(${i})" class="text-rose-500 text-xs font-semibold">ডিলিট</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function removeBill(i) {
+            appData.bills.splice(i, 1);
+            renderBills();
+            updateDashboard();
+        }
+
+        // Children Expenses Handling
+        function addChildExpense(e) {
+            e.preventDefault();
+            const name = document.getElementById('child-name').value;
+            const type = document.getElementById('child-expense-type').value;
+            const amount = parseFloat(document.getElementById('child-amount').value);
+            const payer = document.getElementById('child-payer').value;
+
+            appData.childrenExpenses.push({ name, type, amount, payer });
+            document.getElementById('child-amount').value = '';
+            document.getElementById('child-name').value = '';
+            renderChildrenExpenses();
+            updateDashboard();
+        }
+
+        function renderChildrenExpenses() {
+            const container = document.getElementById('children-list-container');
+            if(appData.childrenExpenses.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 text-sm">কোনো তথ্য যোগ করা হয়নি।</p>';
+                return;
+            }
+            container.innerHTML = appData.childrenExpenses.map((c, i) => `
+                <div class="flex justify-between items-center bg-slate-50 p-3 rounded-lg border text-sm">
+                    <div>
+                        <span class="font-semibold text-slate-700">${c.name} (${c.type})</span>
+                        <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded ml-2">${c.payer}</span>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="font-bold text-indigo-600">৳ ${c.amount}</span>
+                        <button onclick="removeChildExpense(${i})" class="text-rose-500 text-xs font-semibold">ডিলিট</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function removeChildExpense(i) {
+            appData.childrenExpenses.splice(i, 1);
+            renderChildrenExpenses();
+            updateDashboard();
+        }
+
+        // Grocery List
+        function addGroceryItem() {
+            const input = document.getElementById('grocery-item-input');
+            if(input.value.trim()) {
+                appData.groceryItems.push({ text: input.value.trim(), completed: false });
+                input.value = '';
+                renderGrocery();
+            }
+        }
+        function toggleGrocery(i) {
+            appData.groceryItems[i].completed = !appData.groceryItems[i].completed;
+            renderGrocery();
+        }
+        function removeGrocery(i) {
+            appData.groceryItems.splice(i, 1);
+            renderGrocery();
+        }
+        function renderGrocery() {
+            const container = document.getElementById('grocery-list');
+            if(appData.groceryItems.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 text-sm">বাজারের তালিকা খালি আছে।</p>';
+                return;
+            }
+            container.innerHTML = appData.groceryItems.map((item, i) => `
+                <li class="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border text-sm">
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" ${item.completed ? 'checked' : ''} onclick="toggleGrocery(${i})" class="w-4 h-4 text-indigo-600">
+                        <span class="${item.completed ? 'line-through text-slate-400' : 'font-medium'}">${item.text}</span>
+                    </div>
+                    <button onclick="removeGrocery(${i})" class="text-rose-500 text-xs">মুছে ফেলুন</button>
+                </li>
+            `).join('');
+        }
+
+        // Pie Chart Initialization
+        let expenseChart = null;
+        function updateChart() {
+            let totalBills = appData.bills.reduce((sum, b) => sum + b.amount, 0);
+            let totalChildEdu = appData.childrenExpenses.filter(c => c.type.includes('স্কুল') || c.type.includes('কোচিং')).reduce((sum, c) => sum + c.amount, 0);
+            let totalTiffin = appData.childrenExpenses.filter(c => c.type.includes('টিফিন') || c.type.includes('যাতায়াত')).reduce((sum, c) => sum + c.amount, 0);
+
+            const ctx = document.getElementById('expensePieChart').getContext('2d');
+            if(expenseChart) {
+                expenseChart.destroy();
+            }
+
+            expenseChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['ফিক্সড বিল ও ভাড়া', 'শিক্ষা ও কোচিং', 'টিফিন ও যাতায়াত'],
+                    datasets: [{
+                        data: [totalBills, totalChildEdu, totalTiffin],
+                        backgroundColor: ['#6366f1', '#10b981', '#f59e0b']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        // Dashboard & Report Update
+        function updateDashboard() {
+            let totalBills = appData.bills.reduce((sum, b) => sum + b.amount, 0);
+            let totalChild = appData.childrenExpenses.reduce((sum, c) => sum + c.amount, 0);
+            let totalExpense = totalBills + totalChild;
+            let netBalance = appData.totalIncome - totalExpense;
+
+            document.getElementById('total-income-view').innerText = `৳ ${appData.totalIncome}`;
+            document.getElementById('total-expense-view').innerText = `৳ ${totalExpense}`;
+            document.getElementById('net-balance-view').innerText = `৳ ${netBalance}`;
+
+            document.getElementById('rep-income').innerText = `৳ ${appData.totalIncome}`;
+            document.getElementById('rep-expense').innerText = `৳ ${totalExpense}`;
+            document.getElementById('rep-savings').innerText = `৳ ${netBalance}`;
+
+            // Summary Table
+            let summaryHTML = '';
+            if(appData.bills.length === 0 && appData.childrenExpenses.length === 0) {
+                summaryHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-400">কোনো ডেটা নেই।</td></tr>`;
+            } else {
+                appData.bills.forEach(b => {
+                    summaryHTML += `<tr><td class="p-2">${b.name}</td><td class="p-2 text-xs text-indigo-600">${b.payer}</td><td class="p-2 text-right font-semibold text-rose-600">৳ ${b.amount}</td></tr>`;
+                });
+                appData.childrenExpenses.forEach(c => {
+                    summaryHTML += `<tr><td class="p-2">${c.name} (${c.type})</td><td class="p-2 text-xs text-indigo-600">${c.payer}</td><td class="p-2 text-right font-semibold text-rose-600">৳ ${c.amount}</td></tr>`;
+                });
+            }
+            document.getElementById('summary-table-body').innerHTML = summaryHTML;
+
+            // Contributor Report Breakdown
+            let contributors = {};
+            [...appData.bills, ...appData.childrenExpenses].forEach(item => {
+                let p = item.payer || 'অন্যান্য';
+                contributors[p] = (contributors[p] || 0) + item.amount;
+            });
+
+            let repBox = '';
+            if(Object.keys(contributors).length === 0) {
+                repBox = `<p class="text-slate-400 text-xs">কোনো কন্ট্রিবিউশন ডেটা পাওয়া যায়নি।</p>`;
+            } else {
+                for(let [person, amount] of Object.entries(contributors)) {
+                    repBox += `<div class="flex justify-between bg-slate-50 p-2.5 rounded border"><span>${person} এর অবদান/খরচ</span><span class="font-bold text-indigo-600">৳ ${amount}</span></div>`;
+                }
+            }
+            document.getElementById('contributor-report-box').innerHTML = repBox;
+
+            if(!document.getElementById('tab-dashboard').classList.contains('hidden')) {
+                updateChart();
+            }
+        }
+
+        // Days Calculation
+        function calculateRemainingPeriod() {
+            const endDateVal = document.getElementById('calc-end-date').value;
+            if(!endDateVal) {
+                alert('দয়া করে শেষ তারিখ সিলেক্ট করুন।');
+                return;
+            }
+            const today = new Date();
+            const endDate = new Date(endDateVal);
+            const diffDays = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24)) + 1;
+
+            if(diffDays <= 0) {
+                alert('ভবিষ্যতের সঠিক তারিখ সিলেক্ট করুন।');
+                return;
+            }
+
+            let totalExpense = appData.bills.reduce((s, b) => s + b.amount, 0) + appData.childrenExpenses.reduce((s, c) => s + c.amount, 0);
+            let estimatedCost = Math.round((totalExpense / 30) * diffDays);
+
+            document.getElementById('res-days').innerText = diffDays;
+            document.getElementById('res-cost').innerText = estimatedCost;
+            document.getElementById('calc-result').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
